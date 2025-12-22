@@ -1,0 +1,5 @@
+{
+  "name": "Azure DevOps PR Genius",
+  "description": "An AI-powered Pull Request analyzer for Azure DevOps that provides deep code reviews, suggestions, and logical analysis using Gemini 3 Pro.",
+  "requestFramePermissions": []
+}
