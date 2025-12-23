@@ -7,10 +7,23 @@ import {
 } from "./services/azureDevOpsService.ts";
 import { analyzeBatch as geminiAnalyzeBatch } from "./services/geminiService.ts";
 import { analyzeBatch as glmAnalyzeBatch } from "./services/glmService.ts";
-import { AppState, PRAnalysis, AIProvider } from "./types.ts";
+import {
+  AppState,
+  PRAnalysis,
+  AIProvider,
+  PRCreateResult,
+  PRReviewDetails,
+} from "./types.ts";
 import { AnalysisDisplay } from "./components/AnalysisDisplay.tsx";
+import PRCreationForm from "./components/PRCreationForm.tsx";
+import PRCreationResult from "./components/PRCreationResult.tsx";
+import PRReviewForm from "./components/PRReviewForm.tsx";
+import PRReviewAnalysis from "./components/PRReviewAnalysis.tsx";
 
 const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<
+    "analyze" | "create" | "review" | "review-analysis"
+  >("analyze");
   const [url, setUrl] = useState("");
   const [pat, setPat] = useState("");
   const [aiProvider, setAiProvider] = useState<AIProvider>(
@@ -35,6 +48,11 @@ const App: React.FC = () => {
     systemContext: "",
     aiProvider: "gemini",
   });
+  const [prCreateResult, setPrCreateResult] = useState<PRCreateResult | null>(
+    null
+  );
+  const [prReviewDetails, setPrReviewDetails] =
+    useState<PRReviewDetails | null>(null);
 
   useEffect(() => {
     localStorage.setItem("pr_genius_instructions", systemInstructions);
@@ -192,6 +210,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePRCreateSuccess = (result: PRCreateResult) => {
+    setPrCreateResult(result);
+  };
+
+  const handleResetPRCreate = () => {
+    setPrCreateResult(null);
+  };
+
+  const handlePRReviewSuccess = (details: PRReviewDetails) => {
+    setPrReviewDetails(details);
+  };
+
+  const handleResetPRReview = () => {
+    setPrReviewDetails(null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="border-b border-white/5 bg-[#0a0a0b]/80 backdrop-blur-md sticky top-0 z-50">
@@ -216,119 +250,231 @@ const App: React.FC = () => {
       </nav>
 
       <main className="flex-1 max-w-[1400px] mx-auto w-full px-6 py-10">
+        {/* Tab Navigation */}
+        <div className="mb-8">
+          <div className="bg-[#111113] border border-white/5 rounded-xl p-1 inline-flex">
+            <button
+              onClick={() => setActiveTab("analyze")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "analyze"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:text-slate-300"
+              }`}
+            >
+              <i className="fas fa-search mr-2"></i>
+              Analyze PR
+            </button>
+            <button
+              onClick={() => setActiveTab("create")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "create"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:text-slate-300"
+              }`}
+            >
+              <i className="fas fa-code-branch mr-2"></i>
+              Create PR
+            </button>
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "review"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:text-slate-300"
+              }`}
+            >
+              <i className="fas fa-comments mr-2"></i>
+              Review PR
+            </button>
+            <button
+              onClick={() => setActiveTab("review-analysis")}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "review-analysis"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:text-slate-300"
+              }`}
+            >
+              <i className="fas fa-code-compare mr-2"></i>
+              Review & Analysis
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-[#111113] border border-white/5 rounded-xl p-6 shadow-sm">
-              <h2 className="text-slate-100 font-semibold mb-6 flex items-center gap-2">
-                <i className="fas fa-sliders text-indigo-400 text-xs"></i>{" "}
-                Configuration
-              </h2>
+            {activeTab === "analyze" && (
+              <div className="bg-[#111113] border border-white/5 rounded-xl p-6 shadow-sm">
+                <h2 className="text-slate-100 font-semibold mb-6 flex items-center gap-2">
+                  <i className="fas fa-sliders text-indigo-400 text-xs"></i>{" "}
+                  Configuration
+                </h2>
 
-              <form onSubmit={startAnalysis} className="space-y-5">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
-                    AI Provider
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAiProvider("gemini")}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                        aiProvider === "gemini"
-                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                          : "bg-[#0a0a0b] border border-white/10 text-slate-400 hover:border-white/20"
-                      }`}
+                <form onSubmit={startAnalysis} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      AI Provider
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAiProvider("gemini")}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                          aiProvider === "gemini"
+                            ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                            : "bg-[#0a0a0b] border border-white/10 text-slate-400 hover:border-white/20"
+                        }`}
+                        disabled={state.isAnalyzing}
+                      >
+                        <i className="fas fa-robot mr-1"></i> Gemini
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAiProvider("glm")}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                          aiProvider === "glm"
+                            ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                            : "bg-[#0a0a0b] border border-white/10 text-slate-400 hover:border-white/20"
+                        }`}
+                        disabled={state.isAnalyzing}
+                      >
+                        <i className="fas fa-brain mr-1"></i> GLM
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      Azure PR URL
+                    </label>
+                    <input
+                      type="text"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://dev.azure.com/..."
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                       disabled={state.isAnalyzing}
-                    >
-                      <i className="fas fa-robot mr-1"></i> Gemini
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAiProvider("glm")}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                        aiProvider === "glm"
-                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                          : "bg-[#0a0a0b] border border-white/10 text-slate-400 hover:border-white/20"
-                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      PAT
+                    </label>
+                    <input
+                      type="password"
+                      value={pat}
+                      onChange={(e) => setPat(e.target.value)}
+                      placeholder="Azure DevOps PAT"
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
                       disabled={state.isAnalyzing}
-                    >
-                      <i className="fas fa-brain mr-1"></i> GLM
-                    </button>
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      Project Style Guide
+                    </label>
+                    <textarea
+                      value={systemInstructions}
+                      onChange={(e) => setSystemInstructions(e.target.value)}
+                      placeholder="e.g. Use React Hooks. No external libs for state."
+                      rows={3}
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none"
+                      disabled={state.isAnalyzing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest flex justify-between items-center">
+                      System Context
+                      <span className="text-[9px] lowercase font-normal opacity-50">
+                        API contracts, deps, etc.
+                      </span>
+                    </label>
+                    <textarea
+                      value={systemContext}
+                      onChange={(e) => setSystemContext(e.target.value)}
+                      placeholder="e.g. Service B requires field 'userId'. Shared package 'core-ui' is at v2.3."
+                      rows={4}
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none"
+                      disabled={state.isAnalyzing}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={state.isAnalyzing}
+                    className="w-full py-3 rounded-lg font-bold text-sm bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-slate-800 disabled:text-slate-500 transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/10"
+                  >
+                    {state.isAnalyzing && !state.analysis ? (
+                      <>
+                        <i className="fas fa-circle-notch fa-spin mr-2"></i>
+                        Analyzing...
+                      </>
+                    ) : (
+                      "Analyze Pull Request"
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {activeTab === "create" && !prCreateResult && (
+              <div className="bg-[#111113] border border-white/5 rounded-xl p-6 shadow-sm">
+                <h2 className="text-slate-100 font-semibold mb-6 flex items-center gap-2">
+                  <i className="fas fa-key text-indigo-400 text-xs"></i>
+                  Authentication
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      PAT
+                    </label>
+                    <input
+                      type="password"
+                      value={pat}
+                      onChange={(e) => setPat(e.target.value)}
+                      placeholder="Azure DevOps PAT"
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="bg-slate-900/50 border border-white/5 rounded-lg p-3">
+                    <p className="text-xs text-slate-400">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Your PAT needs "Code (Read & Write)" scope to create pull
+                      requests.
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
-                    Azure PR URL
-                  </label>
-                  <input
-                    type="text"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://dev.azure.com/..."
-                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
-                    disabled={state.isAnalyzing}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
-                    PAT
-                  </label>
-                  <input
-                    type="password"
-                    value={pat}
-                    onChange={(e) => setPat(e.target.value)}
-                    placeholder="Azure DevOps PAT"
-                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
-                    disabled={state.isAnalyzing}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
-                    Project Style Guide
-                  </label>
-                  <textarea
-                    value={systemInstructions}
-                    onChange={(e) => setSystemInstructions(e.target.value)}
-                    placeholder="e.g. Use React Hooks. No external libs for state."
-                    rows={3}
-                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none"
-                    disabled={state.isAnalyzing}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest flex justify-between items-center">
-                    System Context
-                    <span className="text-[9px] lowercase font-normal opacity-50">
-                      API contracts, deps, etc.
-                    </span>
-                  </label>
-                  <textarea
-                    value={systemContext}
-                    onChange={(e) => setSystemContext(e.target.value)}
-                    placeholder="e.g. Service B requires field 'userId'. Shared package 'core-ui' is at v2.3."
-                    rows={4}
-                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-xs text-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none transition-all resize-none"
-                    disabled={state.isAnalyzing}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={state.isAnalyzing}
-                  className="w-full py-3 rounded-lg font-bold text-sm bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-slate-800 disabled:text-slate-500 transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/10"
-                >
-                  {state.isAnalyzing && !state.analysis ? (
-                    <>
-                      <i className="fas fa-circle-notch fa-spin mr-2"></i>
-                      Analyzing...
-                    </>
-                  ) : (
-                    "Analyze Pull Request"
-                  )}
-                </button>
-              </form>
-            </div>
+              </div>
+            )}
 
-            {state.error && (
+            {activeTab === "review" && !prReviewDetails && (
+              <div className="bg-[#111113] border border-white/5 rounded-xl p-6 shadow-sm">
+                <h2 className="text-slate-100 font-semibold mb-6 flex items-center gap-2">
+                  <i className="fas fa-key text-indigo-400 text-xs"></i>
+                  Authentication
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      PAT
+                    </label>
+                    <input
+                      type="password"
+                      value={pat}
+                      onChange={(e) => setPat(e.target.value)}
+                      placeholder="Azure DevOps PAT"
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="bg-slate-900/50 border border-white/5 rounded-lg p-3">
+                    <p className="text-xs text-slate-400">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Your PAT needs "Code (Read & Write)" scope to review pull
+                      requests.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {state.error && activeTab === "analyze" && (
               <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-5 text-rose-400 flex items-start gap-3">
                 <i className="fas fa-exclamation-triangle mt-1"></i>
                 <div>
@@ -339,42 +485,193 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === "review-analysis" && (
+              <div className="bg-[#111113] border border-white/5 rounded-xl p-6 shadow-sm">
+                <h2 className="text-slate-100 font-semibold mb-6 flex items-center gap-2">
+                  <i className="fas fa-key text-indigo-400 text-xs"></i>
+                  Authentication
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-widest">
+                      PAT
+                    </label>
+                    <input
+                      type="password"
+                      value={pat}
+                      onChange={(e) => setPat(e.target.value)}
+                      placeholder="Azure DevOps PAT"
+                      className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="bg-slate-900/50 border border-white/5 rounded-lg p-3">
+                    <p className="text-xs text-slate-400">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      Your PAT needs "Code (Read & Write)" scope to review and
+                      analyze pull requests.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-8">
-            {state.isAnalyzing && !state.analysis ? (
-              <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-16 h-16 relative">
-                  <div className="absolute inset-0 border-4 border-indigo-600/20 rounded-full animate-pulse"></div>
-                  <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <h3 className="text-lg font-bold text-slate-200 uppercase tracking-widest">
-                  Context-Aware Audit in Progress
-                </h3>
-              </div>
-            ) : state.analysis && state.prInfo && state.params ? (
-              <AnalysisDisplay
-                analysis={state.analysis}
-                prInfo={state.prInfo}
-                params={state.params}
-                processedCount={state.processedCount}
-                totalCount={state.allChanges.length}
-                isAnalyzing={state.isAnalyzing}
-                onLoadNext={loadNextBatch}
-              />
-            ) : (
-              <div className="h-full min-h-[400px] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-10">
-                <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
-                  <i className="fas fa-microchip text-slate-600 text-3xl"></i>
-                </div>
-                <h2 className="text-xl font-bold text-slate-200 mb-2 tracking-tight">
-                  Audit Engine Standby
-                </h2>
-                <p className="text-slate-500 max-w-sm text-sm">
-                  Automated logical, security, and architectural reasoning.
-                  Enter context and PR URL to start.
-                </p>
-              </div>
+            {activeTab === "analyze" && (
+              <>
+                {state.isAnalyzing && !state.analysis ? (
+                  <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="w-16 h-16 relative">
+                      <div className="absolute inset-0 border-4 border-indigo-600/20 rounded-full animate-pulse"></div>
+                      <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-200 uppercase tracking-widest">
+                      Context-Aware Audit in Progress
+                    </h3>
+                  </div>
+                ) : state.analysis && state.prInfo && state.params ? (
+                  <AnalysisDisplay
+                    analysis={state.analysis}
+                    prInfo={state.prInfo}
+                    params={state.params}
+                    processedCount={state.processedCount}
+                    totalCount={state.allChanges.length}
+                    isAnalyzing={state.isAnalyzing}
+                    onLoadNext={loadNextBatch}
+                  />
+                ) : (
+                  <div className="h-full min-h-[400px] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-10">
+                    <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
+                      <i className="fas fa-microchip text-slate-600 text-3xl"></i>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-200 mb-2 tracking-tight">
+                      Audit Engine Standby
+                    </h2>
+                    <p className="text-slate-500 max-w-sm text-sm">
+                      Automated logical, security, and architectural reasoning.
+                      Enter context and PR URL to start.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "create" && (
+              <>
+                {!pat ? (
+                  <div className="h-full min-h-[400px] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-10">
+                    <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
+                      <i className="fas fa-key text-slate-600 text-3xl"></i>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-200 mb-2 tracking-tight">
+                      Authentication Required
+                    </h2>
+                    <p className="text-slate-500 max-w-sm text-sm">
+                      Please provide your Azure DevOps PAT to create pull
+                      requests.
+                    </p>
+                  </div>
+                ) : prCreateResult ? (
+                  <PRCreationResult
+                    result={prCreateResult}
+                    onReset={handleResetPRCreate}
+                  />
+                ) : (
+                  <PRCreationForm
+                    pat={pat}
+                    onCreateSuccess={handlePRCreateSuccess}
+                  />
+                )}
+              </>
+            )}
+
+            {activeTab === "review" && (
+              <>
+                {!pat ? (
+                  <div className="h-full min-h-[400px] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-10">
+                    <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
+                      <i className="fas fa-key text-slate-600 text-3xl"></i>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-200 mb-2 tracking-tight">
+                      Authentication Required
+                    </h2>
+                    <p className="text-slate-500 max-w-sm text-sm">
+                      Please provide your Azure DevOps PAT to review pull
+                      requests.
+                    </p>
+                  </div>
+                ) : prReviewDetails ? (
+                  <div className="space-y-6">
+                    <div className="bg-[#111113] border border-white/5 rounded-xl p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-slate-100 font-semibold flex items-center gap-2">
+                          <i className="fas fa-comments text-indigo-400 text-xs"></i>
+                          Review Complete
+                        </h2>
+                        <button
+                          onClick={handleResetPRReview}
+                          className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                        >
+                          <i className="fas fa-times mr-1"></i>
+                          Close
+                        </button>
+                      </div>
+                      <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
+                        <p className="text-green-400 text-sm">
+                          <i className="fas fa-check-circle mr-2"></i>
+                          Successfully reviewed PR #
+                          {prReviewDetails.pullRequestId}:{" "}
+                          {prReviewDetails.title}
+                        </p>
+                      </div>
+                      <div className="mt-4">
+                        <button
+                          onClick={() =>
+                            window.open(prReviewDetails.url, "_blank")
+                          }
+                          className="w-full py-2.5 rounded-lg font-bold text-sm bg-indigo-600 hover:bg-indigo-500 text-white transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/10"
+                        >
+                          <i className="fas fa-external-link-alt mr-2"></i>
+                          Open PR in Browser
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <PRReviewForm
+                    pat={pat}
+                    onReviewSuccess={handlePRReviewSuccess}
+                  />
+                )}
+              </>
+            )}
+
+            {activeTab === "review-analysis" && (
+              <>
+                {!pat ? (
+                  <div className="h-full min-h-[400px] border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center p-10">
+                    <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
+                      <i className="fas fa-key text-slate-600 text-3xl"></i>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-200 mb-2 tracking-tight">
+                      Authentication Required
+                    </h2>
+                    <p className="text-slate-500 max-w-sm text-sm">
+                      Please provide your Azure DevOps PAT to review and analyze
+                      pull requests.
+                    </p>
+                  </div>
+                ) : (
+                  <PRReviewAnalysis
+                    pat={pat}
+                    aiProvider={aiProvider}
+                    systemInstructions={systemInstructions}
+                    systemContext={systemContext}
+                    onReviewSuccess={handlePRReviewSuccess}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
